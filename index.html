@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Giornale di Cantiere</title>
+  <meta name="description" content="Giornale dei lavori condiviso per cantieri pubblici, privati e ambientali">
+  <meta name="theme-color" content="#16202B">
+  <!-- PWA: installabile su Android (Chrome) e iPhone/iPad (Safari > Condividi > Aggiungi alla schermata Home) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Giornale">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <div class="gate"><div class="brand"><span class="label">Registro giornaliero dei lavori</span><h1>Giornale di Cantiere</h1><p class="muted">Caricamento in corso…</p></div></div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- Generazione PDF lato browser (librerie incluse: funziona anche senza rete) -->
+  <script src="js/vendor/jspdf.umd.min.js"></script>
+  <script src="js/vendor/jspdf.plugin.autotable.min.js"></script>
+  <!-- api.js = livello dati (oggi simulato, domani chiamate al server). app.js = interfaccia -->
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Nell'app Android (window.AndroidBridge) i file sono già nel telefono: niente service worker
+    if ('serviceWorker' in navigator && !window.AndroidBridge) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
