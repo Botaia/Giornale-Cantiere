@@ -2,8 +2,8 @@
    Strategia "prima la rete": i file aggiornati arrivano subito,
    la copia salvata si usa solo se la rete non risponde.
    Le chiamate /api/ non vengono mai salvate in cache. */
-const CACHE = 'gdc-v2';
-const SHELL = ['./', 'index.html', 'css/style.css', 'js/api.js', 'js/app.js', 'js/vendor/jspdf.umd.min.js', 'js/vendor/jspdf.plugin.autotable.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'gdc-v3';
+const SHELL = ['./', 'index.html', 'style.css', 'api.js', 'app.js', 'jspdf.umd.min.js', 'jspdf.plugin.autotable.min.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

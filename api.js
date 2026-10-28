@@ -1,19 +1,20 @@
 /* =====================================================================
    Giornale di Cantiere — livello dati (api.js)
 
-   OGGI: modalità DIMOSTRATIVA. I dati sono salvati nel browser
-   (localStorage) di questo dispositivo, solo per provare l'interfaccia.
-   Le password demo sono in chiaro: NON usare dati reali in questa modalità.
-
-   DOMANI: ogni funzione qui sotto diventa una chiamata al server
-   (Node.js + PostgreSQL). L'interfaccia (app.js) non cambia.
-   Accanto a ogni funzione è indicato l'endpoint REST previsto.
+   Due modalità, scelte da sole:
+   - REALE: quando l'app è aperta dall'API (server.js), che fornisce
+     config.js con { demo: false }. I dati vanno al database PostgreSQL.
+   - DIMOSTRATIVA: in tutti gli altri casi (GitHub Pages, app Android,
+     file aperto da solo). I dati restano nel browser di questo dispositivo;
+     le password demo sono in chiaro: NON usare dati reali.
+   Accanto a ogni funzione è indicato l'indirizzo dell'API usato.
    ===================================================================== */
 (function () {
   'use strict';
 
-  const DEMO = true;              // false quando il server sarà pronto
-  const API_BASE = '/api';        // indirizzo dell'API sul server aziendale
+  const CONF = window.GDC_CONFIG || {};
+  const DEMO = CONF.demo !== false;
+  const API_BASE = CONF.apiBase || 'api';   // relativo all'indirizzo dell'app
   const KEY = 'gdc-demo-v1';
   const SESSION = 'gdc-sessione';
 
@@ -22,6 +23,9 @@
   function minusDays(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function uid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+  const COMMITTENTE_DEMO = { id: 'u_com', email: 'committente@demo.it', pwd: 'demo', nome: 'Committente Demo', ente: 'Comune (esempio)', ruolo: 'committenza', tutti: false, cantieri: ['c_demo1'], attivo: true };
+  const OPERAIO_DEMO = { id: 'u_op', email: 'operaio@demo.it', pwd: 'demo', nome: 'Operaio Demo', ente: 'Impresa Esempio srl', ruolo: 'operaio', tutti: false, cantieri: ['c_demo1'], attivo: true };
+
   function seed() {
     const c1 = 'c_demo1';
     return {
@@ -29,7 +33,9 @@
         { id: 'u_admin', email: 'admin@demo.it', pwd: 'demo', nome: 'Amministratore Demo', ruolo: 'admin', tutti: true, cantieri: [], attivo: true },
         { id: 'u_dl', email: 'dl@demo.it', pwd: 'demo', nome: 'Ing. Direttore Demo', ruolo: 'dl', tutti: false, cantieri: [c1], attivo: true },
         { id: 'u_cse', email: 'cse@demo.it', pwd: 'demo', nome: 'Geom. CSE Demo', ruolo: 'cse', tutti: false, cantieri: [c1], attivo: true },
-        { id: 'u_imp', email: 'impresa@demo.it', pwd: 'demo', nome: 'Capocantiere Demo', ente: 'Impresa Esempio srl', ruolo: 'impresa', tutti: false, cantieri: [c1], attivo: true }
+        { id: 'u_imp', email: 'impresa@demo.it', pwd: 'demo', nome: 'Capocantiere Demo', ente: 'Impresa Esempio srl', ruolo: 'impresa', tutti: false, cantieri: [c1], attivo: true },
+        OPERAIO_DEMO,
+        COMMITTENTE_DEMO
       ],
       richieste: [],
       cantieri: [
@@ -43,7 +49,20 @@
       giornate: {}
     };
   }
-  function load() { try { const s = localStorage.getItem(KEY); if (s) return JSON.parse(s); } catch (_) {} const d = seed(); save(d); return d; }
+  function load() {
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s) {
+        const d = JSON.parse(s);
+        // dati dimostrativi creati con la versione precedente: aggiunge l'account operaio di prova
+        for (const extra of [OPERAIO_DEMO, COMMITTENTE_DEMO]) {
+          if (!d.utenti.some(u => u.id === extra.id || u.email === extra.email)) { d.utenti.push(Object.assign({}, extra)); save(d); }
+        }
+        return d;
+      }
+    } catch (_) {}
+    const d = seed(); save(d); return d;
+  }
   function save(d) { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (_) {} }
   const clone = o => JSON.parse(JSON.stringify(o));
   const wait = (v) => new Promise(r => setTimeout(() => r(clone(v)), 60));
@@ -54,13 +73,38 @@
 
   /* chiamata reale al server (usata quando DEMO = false) */
   async function http(method, path, body) {
-    const r = await fetch(API_BASE + path, { method, credentials: 'include', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-    if (!r.ok) { const e = new Error((await r.text()) || r.statusText); e.code = r.status === 401 ? 'auth' : r.status === 403 ? 'refused' : 'server'; throw e; }
+    let r;
+    try {
+      r = await fetch(API_BASE + path, {
+        method, credentials: 'include', cache: 'no-store',
+        headers: Object.assign({ 'X-Requested-With': 'giornale' }, body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+    } catch (_) {
+      const e = new Error('Server non raggiungibile. Controlla la connessione e riprova.'); e.code = 'rete'; throw e;
+    }
+    if (!r.ok) {
+      let msg = r.statusText;
+      try { const j = await r.json(); if (j && j.errore) msg = j.errore; } catch (_) {}
+      const e = new Error(msg); e.code = r.status === 401 ? 'auth' : r.status === 403 ? 'refused' : 'server'; throw e;
+    }
     return r.status === 204 ? null : r.json();
   }
 
   const api = {
     demo: DEMO,
+    meteoAuto: !DEMO && CONF.meteoAuto === true,   // meteo automatico OpenWeather attivo sul server
+
+    // POST /api/cantieri/:id/giornate/:data/meteo/automatico   (legge subito il meteo da OpenWeather)
+    async meteoAutomatico(cid, data) {
+      if (DEMO) return fail('Il meteo automatico funziona solo con il server.');
+      return http('POST', `/cantieri/${cid}/giornate/${data}/meteo/automatico`, {});
+    },
+    // GET /api/geocodifica?q=comune   (posizione del cantiere)
+    async geocodifica(testo) {
+      if (DEMO) return fail('La ricerca della posizione funziona solo con il server.');
+      return http('GET', '/geocodifica?q=' + encodeURIComponent(testo));
+    },
 
     /* ---------- accesso ---------- */
     // POST /api/login {email,password} -> utente
@@ -89,7 +133,7 @@
     async listCantieri() {
       if (!DEMO) return http('GET', '/cantieri');
       const d = load(); const u = me(d); if (!u) return wait([]);
-      return wait(d.cantieri.filter(c => u.ruolo === 'admin' || u.tutti || (u.cantieri || []).includes(c.id)));
+      return wait(d.cantieri.filter(c => !c.eliminato && (u.ruolo === 'admin' || u.tutti || (u.cantieri || []).includes(c.id))));
     },
     // POST /api/cantieri  |  PUT /api/cantieri/:id   (solo amministratore)
     async saveCantiere(c) {
@@ -124,7 +168,7 @@
     async addVoce(cid, data, lista, voce) {
       if (!DEMO) return http('POST', `/cantieri/${cid}/giornate/${data}/${lista}`, voce);
       const d = load(); const k = gKey(cid, data); const g = d.giornate[k] || (d.giornate[k] = { cantiereId: cid, data, creato: Date.now() });
-      (g[lista] || (g[lista] = [])).push(Object.assign({ id: uid('v_') }, voce)); save(d); return wait(true);
+      const id = uid('v_'); (g[lista] || (g[lista] = [])).push(Object.assign({ id }, voce)); save(d); return wait({ id });
     },
     // PATCH /api/cantieri/:id/giornate/:data/:lista/:voceId
     async updVoce(cid, data, lista, id, patch) {
@@ -133,7 +177,17 @@
       if (!v) return fail('Voce non trovata.'); Object.assign(v, patch); save(d); return wait(true);
     },
     // DELETE /api/cantieri/:id/giornate/:data/:lista/:voceId  (la voce resta archiviata come eliminata)
-    async delVoce(cid, data, lista, id) { return api.updVoce(cid, data, lista, id, { eliminata: true, eliminataT: Date.now() }); },
+    async delVoce(cid, data, lista, id) {
+      if (!DEMO) return http('DELETE', `/cantieri/${cid}/giornate/${data}/${lista}/${id}`);
+      return api.updVoce(cid, data, lista, id, { eliminata: true, eliminataT: Date.now() });
+    },
+    // POST /api/cantieri/:id/giornate/:data/messaggi/:msgId/letto   ("Ho letto" / "Visto")
+    async segnaLetto(cid, data, id) {
+      if (!DEMO) return http('POST', `/cantieri/${cid}/giornate/${data}/messaggi/${id}/letto`, {});
+      const d = load(); const u = me(d); const g = d.giornate[gKey(cid, data)]; const m = g && (g.messaggi || []).find(x => x.id === id);
+      if (!u || !m) return fail('Messaggio non trovato.');
+      m.letture = Object.assign({}, m.letture, { [u.id]: { nome: u.nome, t: Date.now() } }); save(d); return wait(true);
+    },
     // PUT /api/cantieri/:id/giornate/:data/meteo
     async setMeteo(cid, data, meteo) {
       if (!DEMO) return http('PUT', `/cantieri/${cid}/giornate/${data}/meteo`, meteo);
@@ -168,6 +222,46 @@
     },
 
     /* solo modalità dimostrativa: riporta i dati di esempio allo stato iniziale */
+    // DELETE /api/cantieri/:id   (archivia il cantiere: sparisce dall'app, i dati restano)
+    async delCantiere(id) {
+      if (!DEMO) return http('DELETE', '/cantieri/' + id);
+      const d = load(); const c = d.cantieri.find(x => x.id === id); if (c) c.eliminato = Date.now(); save(d); return wait(true);
+    },
+    // POST /api/utenti   (nuovo utente creato dall'amministratore)
+    async addUtente(u) {
+      if (!DEMO) return http('POST', '/utenti', u);
+      const d = load(); const em = String(u.email).trim().toLowerCase();
+      if (d.utenti.some(x => x.email.toLowerCase() === em)) return fail('Esiste già un utente con questa email.');
+      if (String(u.password || '').length < 8) return fail('La password provvisoria deve avere almeno 8 caratteri.');
+      d.utenti.push({ id: uid('u_'), email: em, pwd: u.password, nome: u.nome, ente: u.ente, tel: u.tel, ruolo: u.ruolo, tutti: !!u.tutti, cantieri: u.cantieri || [], attivo: true });
+      save(d); return wait(true);
+    },
+    // POST /api/cantieri/:id/giornate/:data/:lista/:voceId/foto   (immagine già ridotta dall'app)
+    async addFoto(cid, data, lista, voceId, blob) {
+      if (!DEMO) {
+        let r;
+        try {
+          r = await fetch(`${API_BASE}/cantieri/${cid}/giornate/${data}/${lista}/${voceId}/foto`, {
+            method: 'POST', credentials: 'include', headers: { 'Content-Type': blob.type || 'image/jpeg', 'X-Requested-With': 'giornale' }, body: blob });
+        } catch (_) { const e = new Error('Server non raggiungibile.'); e.code = 'rete'; throw e; }
+        if (!r.ok) { let m = r.statusText; try { m = (await r.json()).errore || m; } catch (_) {} const e = new Error(m); e.code = r.status === 401 ? 'auth' : 'server'; throw e; }
+        return r.json();
+      }
+      // dimostrativa: la foto (già ridotta) resta nel browser
+      const url = await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsDataURL(blob); });
+      const d = load(); const u = me(d); const g = d.giornate[gKey(cid, data)]; const v = g && (g[lista] || []).find(x => x.id === voceId);
+      if (!v) return fail('Registrazione non trovata.');
+      (v.foto || (v.foto = [])).push({ id: uid('f_'), url, t: Date.now(), da: u.id, daNome: u.nome });
+      try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (_) { return fail('Spazio del browser esaurito: in modalità dimostrativa le foto occupano molto. Elimina qualche foto o ripristina i dati di esempio.'); }
+      return wait({ id: v.foto[v.foto.length - 1].id });
+    },
+    // DELETE /api/foto/:id
+    async delFoto(cid, data, lista, voceId, fotoId) {
+      if (!DEMO) return http('DELETE', '/foto/' + fotoId);
+      const d = load(); const g = d.giornate[gKey(cid, data)]; const v = g && (g[lista] || []).find(x => x.id === voceId);
+      if (v && v.foto) v.foto = v.foto.filter(f => f.id !== fotoId); save(d); return wait(true);
+    },
+
     resetDemo() { try { localStorage.removeItem(KEY); localStorage.removeItem(SESSION); } catch (_) {} }
   };
 

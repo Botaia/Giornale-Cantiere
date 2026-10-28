@@ -38,11 +38,12 @@ p{margin:0}
 .who{display:flex;gap:6px;align-items:center;font-size:.82rem;color:var(--muted);flex-wrap:wrap}
 .who b{color:var(--ink);font-weight:600}
 .hazard{height:5px;margin:10px -16px 0;background:repeating-linear-gradient(-45deg,var(--signal) 0 10px,var(--ink) 10px 20px);opacity:.85}
-.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-block:10px 2px}
-.tabs::-webkit-scrollbar{display:none}
+/* sezioni: vanno a capo su più righe, così sono tutte visibili su telefono e computer */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;padding-block:10px 2px}
 .tab{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 13px;font:500 .88rem var(--f-body);cursor:pointer;display:flex;gap:6px;align-items:center}
 .tab[aria-current="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .tab .n{font-family:var(--f-mono);font-size:.75rem;opacity:.75}
+.tab .n.dot{font-family:var(--f-body);font-weight:600;opacity:1;background:var(--bad);color:#fff;border-radius:999px;padding:0 7px}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);margin-top:10px}
 .seg button{border:0;background:none;color:var(--muted);padding:9px 4px;font:600 .9rem var(--f-display);text-transform:uppercase;letter-spacing:.06em;cursor:pointer}
 .seg button+button{border-left:1px solid var(--line)}
@@ -69,6 +70,14 @@ p{margin:0}
 .pill.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
 .pill.acc{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .sev-Alta{border-left:4px solid var(--bad)} .sev-Media{border-left:4px solid var(--warn)} .sev-Bassa{border-left:4px solid var(--ok)}
+.linkrow{align-self:flex-start;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font:inherit;font-size:.85rem;color:var(--ink);cursor:pointer;display:inline-flex;gap:8px;align-items:baseline;max-width:100%;overflow-wrap:anywhere}
+.linkrow .label{font-size:.72rem}
+.linkrow.alert{background:var(--bad-soft);border-color:transparent;color:var(--bad);font-weight:600}
+.item.msg.unread{border-color:var(--bad)}
+.item.msg-imp{border-left:4px solid var(--bad)}
+fieldset.plain{border:0;padding:0;margin:0;min-width:0}
+fieldset.plain legend{font-size:.8rem;font-weight:600;color:var(--muted);padding:0;margin-bottom:6px}
+.checks label:has(input:checked){background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
 .empty{border:1px dashed var(--line);border-radius:var(--r);padding:14px;color:var(--muted);font-size:.9rem}
 .notice{border-radius:var(--r);padding:12px 14px;background:var(--warn-soft);color:var(--ink);font-size:.9rem}
 .notice.info{background:var(--accent-soft)}
@@ -128,3 +137,14 @@ tr:last-child td{border-bottom:0}
 .brand h1{font-size:2.6rem}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.9rem;z-index:20;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
+.notice.meteo-auto{border-left:4px solid var(--warn)}
+/* foto */
+.foto-strip{display:flex;flex-wrap:wrap;gap:6px}
+.thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2);padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.add-foto{border-style:dashed;color:var(--accent);font-size:.78rem;font-weight:600}
+.lightbox{position:fixed;inset:0;z-index:30;background:rgba(8,12,16,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px))}
+.lightbox img{max-width:100%;max-height:calc(100% - 64px);object-fit:contain;border-radius:6px}
+.lb-bar{display:flex;gap:10px;align-items:center;justify-content:space-between;width:100%;max-width:760px;color:#fff}
+.lb-bar .btn.ghost{color:#f1b4ad}
+.item > .pill{align-self:flex-start}
